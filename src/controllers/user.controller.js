@@ -1,108 +1,105 @@
-const User = require("../models/user.model")
-const uploadOnCloudinary = require("../utils/FileUploadToCloudinary")
+const User = require("../models/user.model");
+const uploadOnCloudinary = require("../utils/FileUploadToCloudinary");
 
-
+// Register a new user
 exports.register = async (req, res) => {
-
     try {
+        // Fetch data from frontend
+        const { fullName, email, userName, password } = req.body;
 
-        // fetch data from frontend...
-        const { fullName, email, userName, password } = req.body
-
-        // validation - empty field...
+        // Validate required fields
         if ([fullName, email, userName, password].some((field) => field?.trim() === "")) {
             return res.status(400).json({
                 success: false,
-                message: "All fields are required..."
-            })
+                message: "All fields are required",
+            });
         }
 
-        // check the user is exist already or not..
-        const existUser = await User.findOne({ email })
+        // Check if user already exists
+        const existUser = await User.findOne({ email });
         if (existUser) {
             return res.status(400).json({
                 success: false,
-                message: "User with this email already exists..."
-            })
+                message: "User with this email already exists",
+            });
         }
 
-        // check image for avatar...
-        const avatarLocalPath = req.files?.avatar[0]?.path;
-        const coverImageLocalPath = req.files?.coverImage[0]?.path;
+        // Get file paths for avatar and cover image
+        const avatarLocalPath = req.files?.avatar?.[0]?.path;
+        console.log(avatarLocalPath)
+        let coverImageLocalPath;
+
+        if (req.files && Array.isArray(req.files?.coverImage) && req.files.coverImage.length > 0) {
+            coverImageLocalPath = req.files.coverImage[0].path;
+        }
+
+        // Validate avatar file
         if (!avatarLocalPath) {
             return res.status(400).json({
                 success: false,
-                message: "Avatar file is required..."
-            })
+                message: "Avatar file is required",
+            });
         }
 
-        // upload the coverImage and Avatar on cloudinary... 
-        const avatar = await uploadOnCloudinary(avatarLocalPath)
-        const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+        // Upload files to Cloudinary
+        const avatar = await uploadOnCloudinary(avatarLocalPath);
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
         if (!avatar?.url) {
             return res.status(400).json({
                 success: false,
-                message: "Failed to upload avatar..."
-            })
+                message: "Failed to upload avatar",
+            });
         }
 
-
-        // create entry for data in DATABASE...
+        // Create user in database
         const createdUser = await User.create({
             fullName,
             userName: userName.toLowerCase(),
             email,
             password,
             avatar: avatar.url,
-            coverImage: coverImage?.url || ""
+            coverImage: coverImage?.url || "",
+        });
 
-        })
-
-        const userDetails = await User.findById(createdUser._id).select(
-            "-password -refreshToken"
-        )
+        // Fetch user details excluding sensitive fields
+        const userDetails = await User.findById(createdUser._id).select("-password -refreshToken");
 
         if (!userDetails) {
             return res.status(500).json({
                 success: false,
-                message: "Something went wrong while registering the user..."
-            })
+                message: "Something went wrong while registering the user",
+            });
         }
 
-
-        // success response...
+        // Send success response
         return res.status(200).json({
             success: true,
             userDetails,
-            message: "User register successfully..."
-        })
-
+            message: "User registered successfully",
+        });
     } catch (error) {
-        console.log("Error :", error)
+        console.error("Error during registration:", error);
         return res.status(500).json({
             success: false,
-            message: "Server Failure..."
-        })
+            message: "Server failure",
+        });
     }
+};
 
-}
-
+// Login user
 exports.login = async (req, res) => {
-
     try {
-
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            message: "User login successfully..."
-        })
-
+            message: "User logged in successfully",
+        });
     } catch (error) {
-        console.log("Error :", error)
-        res.status(500).json({
+        console.error("Error during login:", error);
+        return res.status(500).json({
             success: false,
-            message: "Server Failure..."
-        })
+            message: "Server failure",
+        });
     }
+};
 
-}

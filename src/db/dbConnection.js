@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 require("dotenv").config();
-const DB_NAME = require("../constants")
-const MONGO_URI = process.env.MONGODB_URI; 
+
+const { DB_NAME } = require("../constants"); 
+const MONGO_URI = process.env.MONGODB_URI;
 
 const DBconnect = async () => {
   try {
