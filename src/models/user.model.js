@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    watchHistory: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Video"
+    }],
     avatar: {
       type: String,
     },
