@@ -1,6 +1,27 @@
 const User = require("../models/user.model");
 const uploadOnCloudinary = require("../utils/FileUploadToCloudinary");
 
+// token generate function
+const generateAccessAndRefreshToken = async (userId) => {
+    try {
+
+        const user = await User.findOne(userId);
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
+        return { accessToken, refreshToken }
+
+    } catch (error) {
+        console.error("Error during generating the token:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong while generating refresh and access token...",
+        });
+    }
+}
+
 // Register a new user
 exports.register = async (req, res) => {
     try {
@@ -90,16 +111,72 @@ exports.register = async (req, res) => {
 // Login user
 exports.login = async (req, res) => {
     try {
-        return res.status(200).json({
-            success: true,
-            message: "User logged in successfully",
-        });
+
+        // 1. fetch the data from frontend 
+        const { email, password } = req.body
+
+        // 2. validate the empty field
+        if (!email || !password) {
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    message: "Email and Password are required..."
+                })
+        }
+
+        // 3. find the user
+        const user = await User.findOne({ email })
+        if (!user) {
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "User does not exist..."
+                })
+        }
+
+        // 4. compare the password 
+        const isPasswordCorrect = await user.isPasswordCorrect(password);
+
+        if (!isPasswordCorrect) {
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "Invalid credentials"
+                })
+        }
+
+        // 5. generate the Access and Refresh token 
+        const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+
+        const loggedInUser = await User.findOne(user._id).select("-password -refreshToken")
+
+        // 6. send the cookie
+        const option = {
+            httpOnly: true,
+            secure: true,
+        }
+
+        // 7. send the success response 
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, option)
+            .cookie("refreshToken", refreshToken, option)
+            .json({
+                success: true,
+                user: loggedInUser, accessToken, refreshToken,
+                message: "User logged in successfully",
+            });
     } catch (error) {
         console.error("Error during login:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server failure",
-        });
+        return res
+            .status(500)
+            .json({
+                success: false,
+                message: "Server failure",
+            });
     }
 };
 
