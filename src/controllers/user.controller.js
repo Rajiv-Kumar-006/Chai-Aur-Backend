@@ -5,7 +5,8 @@ const uploadOnCloudinary = require("../utils/FileUploadToCloudinary");
 const generateAccessAndRefreshToken = async (userId) => {
     try {
 
-        const user = await User.findOne(userId);
+        // console.log("userID", userId)
+        const user = await User.findById(userId);
         const accessToken = user.generateAccessToken();
         const refreshToken = user.generateRefreshToken();
 
@@ -149,9 +150,19 @@ exports.login = async (req, res) => {
         }
 
         // 5. generate the Access and Refresh token 
-        const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+        let accessToken, refreshToken;
 
-        const loggedInUser = await User.findOne(user._id).select("-password -refreshToken")
+        try {
+            ({ accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id));
+        } catch (tokenError) {
+            console.error("Token generation failed:", tokenError);
+            return res.status(500).json({
+                success: false,
+                message: "Token generation failed",
+            });
+        }
+
+        const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
         // 6. send the cookie
         const option = {
@@ -175,8 +186,51 @@ exports.login = async (req, res) => {
             .status(500)
             .json({
                 success: false,
-                message: "Server failure",
+                message: "Server failure...",
             });
     }
 };
 
+// logout
+exports.logout = async (req, res) => {
+    try {
+
+        // 1. update the refress token as undefined
+        await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $set: {
+                    "refreshToken": undefined
+                }
+            },
+            {
+                new: true
+            }
+        )
+
+        // 2. clear the cookies
+        const option = {
+            httpOnly: true,
+            secure: true,
+        }
+
+        return res
+            .status(200)
+            .clearCookie("accessToken", option)
+            .clearCookie("refreshToken", option)
+            .json({
+                success: true,
+                message: "User logged out successfully",
+            });
+
+
+    } catch (error) {
+        console.error("Error during logout:", error);
+        return res
+            .status(500)
+            .json({
+                success: false,
+                message: "Server failure...",
+            });
+    }
+}

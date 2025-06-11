@@ -1,6 +1,7 @@
 const express = require("express");
-const { register, login } = require("../controllers/user.controller");
-const { upload } = require("../middlewares/multer.middleware"); // ✅ CommonJS import
+const { register, login, logout } = require("../controllers/user.controller");
+const { upload } = require("../middlewares/multer.middleware");
+const { verifyToken } = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 
@@ -12,7 +13,8 @@ router.post("/register",
     register
 );
 
+router.post("/login", login)
 
-router.post("/login", login);
+router.post("/logout", verifyToken, logout);
 
 module.exports = router;
