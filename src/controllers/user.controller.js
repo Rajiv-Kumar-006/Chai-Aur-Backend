@@ -1,5 +1,7 @@
 const User = require("../models/user.model");
 const uploadOnCloudinary = require("../utils/FileUploadToCloudinary");
+const jwt = require("jsonwebtoken");
+require("dotenv").config()
 
 // token generate function
 const generateAccessAndRefreshToken = async (userId) => {
@@ -23,7 +25,7 @@ const generateAccessAndRefreshToken = async (userId) => {
     }
 }
 
-// Register a new user
+// Register new user
 exports.register = async (req, res) => {
     try {
         // Fetch data from frontend
@@ -234,3 +236,77 @@ exports.logout = async (req, res) => {
             });
     }
 }
+
+// refresh Access token
+exports.refreshAccessToken = async (req, res) => {
+    try {
+
+        // 1. Get refresh token from body or cookies
+        const incomingRefreshToken = req.body?.refreshToken || req.cookies?.refreshToken;
+
+        // 2. Check if refresh token exists
+        if (!incomingRefreshToken) {
+            return res.status(401).json({
+                success: false,
+                message: "Refresh Token is required",
+            });
+        }
+
+        // 3. Verify refresh token
+        let decodedToken;
+        try {
+            decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+        } catch (err) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid or expired refresh token",
+            });
+        }
+
+        // 4. Find user and check token match
+        const user = await User.findById(decodedToken._id);
+        if (!user || user.refreshToken !== incomingRefreshToken) {
+            return res.status(403).json({
+                success: false,
+                message: "Unauthorized - token mismatch",
+            });
+        }
+
+        // 5. Generate new tokens
+        let accessToken, refreshToken;
+        try {
+            ({ accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id));
+        } catch (tokenError) {
+            console.error("Token generation failed:", tokenError);
+            return res.status(500).json({
+                success: false,
+                message: "Token generation failed",
+            });
+        }
+
+        // 6. Send tokens in HTTP-only cookies
+        const options = {
+            httpOnly: true,
+            secure: true,
+            sameSite: "Strict",
+        };
+
+        res.cookie("accessToken", accessToken,options);
+        res.cookie("refreshToken", refreshToken, options);
+
+        // 7. Send response
+        return res.status(200).json({
+            success: true,
+            message: "Access token refreshed successfully",
+            accessToken,
+            refreshToken,
+        });
+
+    } catch (error) {
+        console.error("Error in refreshing token:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong while refreshing the token",
+        });
+    }
+};

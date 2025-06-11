@@ -1,5 +1,5 @@
 const express = require("express");
-const { register, login, logout } = require("../controllers/user.controller");
+const { register, login, logout, refreshAccessToken } = require("../controllers/user.controller");
 const { upload } = require("../middlewares/multer.middleware");
 const { verifyToken } = require("../middlewares/auth.middleware");
 
@@ -12,9 +12,8 @@ router.post("/register",
     ]),
     register
 );
-
 router.post("/login", login)
-
 router.post("/logout", verifyToken, logout);
+router.post("/refresh-token", refreshAccessToken)
 
 module.exports = router;
