@@ -18,11 +18,9 @@ const uploadOnCloudinary = async (localFilePath) => {
       folder: "chaiAurBackend",
     });
 
-    // console.log("✅ Uploaded to Cloudinary:", response.secure_url);
-
     // 2. Delete local file after successful upload
     fs.unlinkSync(localFilePath);
-    // console.log("🗑️ Deleted local file:", localFilePath);
+ 
 
     return response;
 

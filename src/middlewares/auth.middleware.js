@@ -10,7 +10,8 @@ exports.verifyToken = async (req, res, next) => {
         const authHeader = req.header("Authorization");
         const token = req.cookies?.accessToken
             || (authHeader?.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : null);
-        console.log("Token :- ", token)
+
+        // console.log("Token :- ", token)
 
         // 2. validation :- token
         if (!token) {
@@ -24,11 +25,11 @@ exports.verifyToken = async (req, res, next) => {
 
         // 3. verify the token 
         const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
-        console.log("Decoded : ", decoded)
+        // console.log("Decoded : ", decoded)
 
         // 4. DB call 
         const user = await User.findById(decoded._id).select("-password -refreshToken")
-        console.log("user from veriftToken : ", user)
+        // console.log("user from veriftToken : ", user)
         if (!user) {
             return res
                 .status(400)

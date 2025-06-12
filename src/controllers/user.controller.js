@@ -20,7 +20,7 @@ const generateAccessAndRefreshToken = async (userId) => {
         console.error("Error during generating the token:", error);
         return res.status(500).json({
             success: false,
-            message: "Something went wrong while generating refresh and access token...",
+            message: "Something went wrong while generating refresh and access token.",
         });
     }
 }
@@ -124,7 +124,7 @@ exports.login = async (req, res) => {
                 .status(400)
                 .json({
                     success: false,
-                    message: "Email and Password are required..."
+                    message: "Email and Password are required."
                 })
         }
 
@@ -135,7 +135,7 @@ exports.login = async (req, res) => {
                 .status(401)
                 .json({
                     success: false,
-                    message: "User does not exist..."
+                    message: "User does not exist."
                 })
         }
 
@@ -188,7 +188,7 @@ exports.login = async (req, res) => {
             .status(500)
             .json({
                 success: false,
-                message: "Server failure...",
+                message: "Server failure.",
             });
     }
 };
@@ -232,7 +232,7 @@ exports.logout = async (req, res) => {
             .status(500)
             .json({
                 success: false,
-                message: "Server failure...",
+                message: "Server failure.",
             });
     }
 }
@@ -291,7 +291,7 @@ exports.refreshAccessToken = async (req, res) => {
             sameSite: "Strict",
         };
 
-        res.cookie("accessToken", accessToken,options);
+        res.cookie("accessToken", accessToken, options);
         res.cookie("refreshToken", refreshToken, options);
 
         // 7. Send response
@@ -307,6 +307,177 @@ exports.refreshAccessToken = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Something went wrong while refreshing the token",
+        });
+    }
+};
+
+// change password 
+exports.changePassword = async (req, res) => {
+    try {
+
+        // 1. assume the user is authenticate via middelware
+        const userId = req.user._id
+
+        // 2. fetch the data
+        const { oldPassword, newPassword, confirmPassword } = req.body
+
+        // 3. validate the input 
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    message: "All field required. "
+                })
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    message: "New password do not match "
+                })
+        }
+
+        // 4. find the user 
+        const user = await User.findById(userId)
+
+        // 5. verify the old password and new password
+        const isPasswordCorrect = await user.isPasswordCorrect(newPassword)
+
+        if (!isPasswordCorrect) {
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "Old password do not match "
+                })
+        }
+
+        // 6. update the password
+        user.password = newPassword
+        await user.save({ validateBeforeSave: false })
+
+        // 7. return the success response
+        return res.status(200).json({
+            success: true,
+            message: "Password changed successfully",
+        });
+
+    } catch (error) {
+        console.error("Error changing password:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong",
+        });
+    }
+};
+
+// get the data of current user
+exports.getCurrentUser = async (req, res) => {
+    try {
+
+        // 1. assume the user is authenticate via middelware
+        const userId = req.user._id
+
+        // 2. find the user
+        const user = await User.findById(userId).select("-password -refreshToken")
+
+        if (!user) {
+            return res
+                .status(404)
+                .json({
+                    success: false,
+                    message: "User not found."
+                })
+        }
+
+        // 3. success response
+        return res
+            .status(200)
+            .json({
+                success: true,
+                user,
+                message: "user data fetch successfully."
+            })
+
+    } catch (error) {
+        console.error("Error fetching current user:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};
+
+// update the user details
+exports.updateUserDetails = async (req, res) => {
+    try {
+
+        // 1. assume the user is authenticate via middelware
+        const userId = req.user._id
+
+        // 2. fetch the data
+        const { fullName, userName } = req.body
+
+        // 3. collection of updated details
+        const updates = {}
+
+        if (fullName) updates.fullName = fullName
+        if (userName) updates.userName = userName.toLowerCase()
+
+        // 4. handle the update avatar
+        const avatarLocalPath = req.files?.avatar?.[0].path;
+
+        if (avatarLocalPath) {
+            const avatarUpload = await uploadOnCloudinary(avatarLocalPath)
+
+            if (!avatarLocalPath) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message: "Failed to update the avatar."
+                    })
+            }
+
+            updates.avatar = avatarUpload.url;
+        }
+
+        // 5. handle the cover Image update
+        const coverImageLocalPath = req.files?.avatar?.[0].path;
+
+        if (coverImageLocalPath) {
+            const coverImageUpload = await uploadOnCloudinary(coverImageLocalPath)
+
+            if (coverImageUpload) {
+                updates.coverImage = coverImageUpload.url;
+            }
+
+        }
+
+        // 6. update in db
+        const updated = await User.findByIdAndUpdate(
+            userId,
+            { $set: updates },
+            { new: true },
+        ).select("-password -refreshToken")
+
+        // 7. return success response
+        return res
+            .status(200)
+            .json({
+                success: true,
+                updated,
+                message: " User details updated successfully"
+            })
+
+    } catch (error) {
+        console.error("Error updating user:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error while updating user",
         });
     }
 };
